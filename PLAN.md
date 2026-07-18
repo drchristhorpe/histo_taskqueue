@@ -117,6 +117,22 @@ tests/            alphafold, store, index, queue, app (route) tests
   an in-memory/temp DuckDB.
 - Manual: launch app, submit a job, verify JSON download matches the schema.
 
+## Bulk & pMHC extensions
+
+Two batch-submission flows layered on the same store + index:
+
+- **Bulk CSV upload** (`bulk.py`, `/jobs/upload`) — a wide-format CSV, one job per
+  row (`name`, `sequence_1..5`, `count_1..5`, `model_seeds`). Rows parse into
+  `alphafold.JobSpec`s, are validated individually, and queued via
+  `JobQueue.create_spec`; a results page reports per-row outcomes.
+- **pMHC class I panel** (`pmhc.py`, `/jobs/pmhc`) — one MHC allele × many
+  peptides ⇒ one job per unique peptide, each `[heavy chain, β2m, peptide]`. β2m
+  defaults to the human sequence. Heavy-chain sequences come from a pasted value
+  or an **allele registry** (`alleles.py`, JSON via `HTQ_ALLELES_PATH`).
+
+Both reuse `alphafold.JobSpec` and the existing validation/build path, so the
+canonical AlphaFold Server output is identical to single-job submission.
+
 ## Out of scope (v1)
 
 - Real AlphaFold execution / GPU submission (worker only simulates state).

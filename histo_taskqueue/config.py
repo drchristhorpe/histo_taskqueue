@@ -39,6 +39,7 @@ class Config:
     s3_bucket: str | None = None
     s3_prefix: str = "jobs"
     s3_endpoint_url: str | None = None
+    alleles_path: Path | None = None
     secret_key: str = "dev-secret-change-me"
 
     def resolved_objects_dir(self) -> Path:
@@ -52,6 +53,7 @@ class Config:
         data_dir = Path(_env("HTQ_DATA_DIR", "data"))
         objects_dir = os.environ.get("HTQ_OBJECTS_DIR")
         index_path = os.environ.get("HTQ_INDEX_PATH")
+        alleles_path = os.environ.get("HTQ_ALLELES_PATH")
         return cls(
             store_backend=_env("HTQ_STORE_BACKEND", "local").lower(),
             data_dir=data_dir,
@@ -60,5 +62,6 @@ class Config:
             s3_bucket=os.environ.get("HTQ_S3_BUCKET"),
             s3_prefix=_env("HTQ_S3_PREFIX", "jobs"),
             s3_endpoint_url=os.environ.get("HTQ_S3_ENDPOINT_URL"),
+            alleles_path=Path(alleles_path) if alleles_path else None,
             secret_key=_env("HTQ_SECRET_KEY", "dev-secret-change-me"),
         )

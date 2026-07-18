@@ -15,7 +15,8 @@ from flask import (
     url_for,
 )
 
-from . import alphafold
+from . import alphafold, bulk, pmhc
+from .alleles import AlleleRegistry
 from .config import Config
 from .index import STATUSES, JobIndex
 from .queue import JobQueue
@@ -40,9 +41,28 @@ def create_app(config: Config | None = None) -> Flask:
     index = JobIndex(config.resolved_index_path())
     queue = JobQueue(store, index)
     app.extensions["htq_queue"] = queue
+    app.extensions["htq_alleles"] = AlleleRegistry(config.alleles_path)
 
     def q() -> JobQueue:
         return app.extensions["htq_queue"]
+
+    def alleles() -> AlleleRegistry:
+        return app.extensions["htq_alleles"]
+
+    def _create_specs(specs) -> tuple[list[bulk.RowResult], int]:
+        """Create a list of RowResults' specs, filling in job_id/error. Returns
+        (results, created_count)."""
+        created = 0
+        for r in specs:
+            if r.spec is None:
+                continue
+            try:
+                record = q().create_spec(r.spec)
+                r.job_id = record.id
+                created += 1
+            except alphafold.ValidationError as exc:
+                r.error = str(exc)
+        return specs, created
 
     # -- views -------------------------------------------------------------
     @app.route("/")
@@ -99,6 +119,105 @@ def create_app(config: Config | None = None) -> Flask:
             max_chains=MAX_CHAINS,
             form=form,
             chain_range=range(1, MAX_CHAINS + 1),
+        )
+
+    # -- bulk CSV upload ---------------------------------------------------
+    @app.route("/jobs/upload")
+    def upload_view():
+        return render_template("upload.html")
+
+    @app.route("/jobs/upload/sample.csv")
+    def upload_sample():
+        return Response(
+            bulk.SAMPLE_CSV,
+            mimetype="text/csv",
+            headers={"Content-Disposition": 'attachment; filename="jobs_sample.csv"'},
+        )
+
+    @app.route("/jobs/upload", methods=["POST"])
+    def upload_jobs():
+        text = ""
+        upload = request.files.get("file")
+        if upload and upload.filename:
+            text = upload.read().decode("utf-8", errors="replace")
+        if not text.strip():
+            text = request.form.get("csv_text", "")
+        if not text.strip():
+            flash("Provide a CSV file or paste CSV text.", "error")
+            return render_template("upload.html")
+
+        try:
+            parsed = bulk.parse_jobs_csv(text)
+        except alphafold.ValidationError as exc:
+            flash(str(exc), "error")
+            return render_template("upload.html")
+
+        if not parsed:
+            flash("No data rows found in the CSV.", "error")
+            return render_template("upload.html")
+
+        results, created = _create_specs(parsed)
+        flash(f"Created {created} of {len(results)} job(s).",
+              "success" if created else "error")
+        return render_template(
+            "bulk_results.html", results=results, created=created,
+            total=len(results), kind="CSV upload",
+        )
+
+    # -- pMHC class I panel ------------------------------------------------
+    @app.route("/jobs/pmhc")
+    def pmhc_view():
+        return render_template(
+            "pmhc.html", alleles=alleles().list(), default_b2m=pmhc.DEFAULT_B2M, form=None
+        )
+
+    @app.route("/jobs/pmhc", methods=["POST"])
+    def pmhc_submit():
+        form = request.form
+        allele_name = form.get("allele_name", "").strip()
+        heavy_chain = form.get("heavy_chain", "")
+        b2m = form.get("b2m", "")
+        include_b2m = form.get("include_b2m") == "on"
+
+        # If a registered allele was chosen and no custom heavy chain was typed,
+        # fill the sequences from the registry.
+        selected = form.get("allele_select", "").strip()
+        if selected:
+            allele = alleles().get(selected)
+            if allele:
+                if not allele_name:
+                    allele_name = allele.name
+                if not heavy_chain.strip():
+                    heavy_chain = allele.heavy_chain
+                if not b2m.strip() and allele.b2m:
+                    b2m = allele.b2m
+
+        peptides = pmhc.parse_peptides(form.get("peptides", ""))
+        try:
+            specs = pmhc.build_pmhc_specs(
+                allele_name=allele_name,
+                heavy_chain=heavy_chain,
+                peptides=peptides,
+                b2m=b2m or None,
+                include_b2m=include_b2m,
+            )
+        except alphafold.ValidationError as exc:
+            flash(str(exc), "error")
+            return render_template(
+                "pmhc.html", alleles=alleles().list(),
+                default_b2m=pmhc.DEFAULT_B2M, form=form,
+            )
+
+        rows = [
+            bulk.RowResult(row_num=i, name=s.name, spec=s)
+            for i, s in enumerate(specs, start=1)
+        ]
+        results, created = _create_specs(rows)
+        flash(f"Created {created} of {len(results)} pMHC job(s).",
+              "success" if created else "error")
+        return render_template(
+            "bulk_results.html", results=results, created=created,
+            total=len(results), kind=f"pMHC panel — {allele_name}",
         )
 
     @app.route("/jobs/<job_id>")

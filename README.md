@@ -15,6 +15,11 @@ The UI is styled to echo [Histo.fyi](https://www.histo.fyi).
 - **Compose jobs** — 1–5 protein chains (sequence + copy count), a name, and
   optional model seeds. Sequences are validated against the 20 standard amino
   acids.
+- **Bulk CSV upload** — submit many jobs at once from a wide-format CSV (one job
+  per row); each row is validated and reported individually.
+- **pMHC class I panel** — one MHC allele against many peptides, queuing a job
+  per peptide (heavy chain + β2-microglobulin + peptide). Alleles can come from a
+  registry or be pasted directly.
 - **AlphaFold Server format** — every job downloads as the canonical
   `[ { "name", "modelSeeds", "sequences", "dialect", "version" } ]` array.
 - **Pluggable object store** — `local` filesystem (default) or `s3` (boto3).
@@ -57,6 +62,7 @@ All settings are environment variables (sensible local defaults):
 | `HTQ_S3_BUCKET`       | —                       | Bucket (required for `s3`)                |
 | `HTQ_S3_PREFIX`       | `jobs`                  | Key prefix in the bucket                  |
 | `HTQ_S3_ENDPOINT_URL` | —                       | Custom endpoint (MinIO / localstack)      |
+| `HTQ_ALLELES_PATH`    | bundled (empty)         | JSON registry of MHC class I alleles      |
 | `HTQ_SECRET_KEY`      | `dev-secret-change-me`  | Flask session secret                      |
 | `HTQ_SERVER_URL`      | `http://127.0.0.1:8000` | Base URL the worker talks to              |
 | `PORT`                | `8000`                  | Web server port                           |
@@ -90,6 +96,50 @@ The downloaded file is an **array of jobs** (so one file can hold several):
 - `proteinChain.count` — number of identical copies of that chain.
 - `dialect` is always `"alphafoldserver"`, `version` is `1`.
 
+## Bulk CSV upload
+
+Submit many jobs at once from **`/jobs/upload`** with a wide-format CSV — one job
+per row (header row required, columns case-insensitive):
+
+| Column                      | Required     | Meaning                              |
+|-----------------------------|--------------|--------------------------------------|
+| `name`                      | yes          | Job name                             |
+| `sequence_1` … `sequence_5` | `sequence_1` | Protein-chain sequences (blank cells skipped) |
+| `count_1` … `count_5`       | no           | Copies per chain (default 1)         |
+| `model_seeds`               | no           | Comma/space separated integers       |
+
+Each row is validated independently; the results page reports which rows queued
+and why any failed. Grab a starter file from **`/jobs/upload/sample.csv`**.
+
+## pMHC class I panel
+
+From **`/jobs/pmhc`**, submit **one MHC class I allele against many peptides** —
+the app queues one job per (unique) peptide, each modelled as up to three chains:
+the MHC heavy chain, β2-microglobulin, and the peptide.
+
+- Paste the heavy-chain sequence directly, or pick a **registered allele**.
+- β2-microglobulin defaults to the human sequence; untick it or supply your own.
+- Peptides: one per line (or comma-separated); duplicates are removed.
+
+### Allele registry
+
+Registered alleles are loaded from a JSON file (`HTQ_ALLELES_PATH`, defaults to a
+bundled empty list). Each entry:
+
+```json
+[
+  {
+    "name": "HLA-A*02:01",
+    "heavy_chain": "GSHSMRYFFTSVSRPGRGEPRFIAVGYVDDTQFVRFDSDAASQRMEPRAPWIEQEGPEYWD...",
+    "b2m": "IQRTPKIQVYSRHPAENGKSNFLNCYVSGFHPSDIEVDLLKNGERIEKVEHSDLSFSKDW...",
+    "notes": "optional"
+  }
+]
+```
+
+Only `name` and `heavy_chain` are required; omit `b2m` to use the default. Point
+`HTQ_ALLELES_PATH` at your own file to populate the picker.
+
 ## HTTP API
 
 | Method | Path                       | Purpose                               |
@@ -97,6 +147,11 @@ The downloaded file is an **array of jobs** (so one file can hold several):
 | GET    | `/`                        | Queue dashboard (`?status=` filter)   |
 | GET    | `/jobs/new`                | Compose form                          |
 | POST   | `/jobs`                    | Create a job (form-encoded)           |
+| GET    | `/jobs/upload`             | Bulk CSV upload form                  |
+| POST   | `/jobs/upload`             | Create many jobs from CSV             |
+| GET    | `/jobs/upload/sample.csv`  | Download a sample CSV                  |
+| GET    | `/jobs/pmhc`               | pMHC class I panel form               |
+| POST   | `/jobs/pmhc`               | Queue one job per peptide             |
 | GET    | `/jobs/<id>`               | Job detail                            |
 | GET    | `/jobs/<id>/download`      | Download the AlphaFold job file       |
 | POST   | `/jobs/<id>/status`        | Set status (form)                     |
@@ -129,12 +184,16 @@ job `completed`. Real AlphaFold execution is out of scope for v1 (see `PLAN.md`)
 histo_taskqueue/
   config.py     Environment-driven configuration
   alphafold.py  Validate chains + build/parse AlphaFold Server job JSON
+  bulk.py       Wide-format CSV parsing into job specs
+  pmhc.py       pMHC class I panel builder (allele × peptides) + default β2m
+  alleles.py    AlleleRegistry loaded from JSON
   store.py      ObjectStore interface; LocalFileStore + S3Store
   index.py      JobIndex — DuckDB schema, upsert, list/filter, counts
   queue.py      JobQueue — create / get / claim / set_status / delete
   app.py        Flask app factory + routes
-  templates/    base · index · new · detail
+  templates/    base · index · new · upload · pmhc · bulk_results · detail
   static/css/   histo.css
+  resources/    alleles.json (bundled, empty by default)
 worker.py       HTTP worker CLI
 ```
 
@@ -145,7 +204,7 @@ DuckDB index holds queryable metadata and can be rebuilt from the store.
 
 ```bash
 uv sync --extra dev
-uv run pytest        # 31 tests: unit + Flask route integration
+uv run pytest        # 50 tests: unit + Flask route integration
 ```
 
 ## License

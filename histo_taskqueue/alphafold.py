@@ -50,6 +50,22 @@ class ProteinChain:
         return {"proteinChain": chain}
 
 
+@dataclass
+class JobSpec:
+    """A validated-at-build-time description of a single job.
+
+    Used by the bulk-CSV and pMHC flows to describe many jobs before they are
+    committed to the queue.
+    """
+
+    name: str
+    chains: list[ProteinChain]
+    model_seeds: list[int] = field(default_factory=list)
+
+    def to_job(self) -> dict:
+        return build_job(self.name, self.chains, self.model_seeds)
+
+
 def clean_sequence(raw: str) -> str:
     """Upper-case a sequence and strip all whitespace (incl. FASTA line breaks)."""
     return "".join(raw.split()).upper()

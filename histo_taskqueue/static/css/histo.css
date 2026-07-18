@@ -236,6 +236,27 @@ input:focus, textarea:focus {
   box-shadow: 0 0 0 3px var(--accent-soft);
 }
 
+select {
+  width: 100%;
+  padding: 0.6rem 0.75rem;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  font-family: inherit;
+  font-size: 0.95rem;
+  color: var(--ink);
+  background: var(--surface);
+}
+select:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
+input[type="file"] { font-family: inherit; font-size: 0.9rem; color: var(--ink-soft); }
+label.checkbox { display: flex; align-items: center; gap: 0.5rem; font-weight: 500; }
+label.checkbox input { width: auto; }
+.note {
+  background: var(--accent-soft); border: 1px solid #bfe0dc; border-radius: var(--radius);
+  padding: 0.75rem 1rem; font-size: 0.9rem; color: var(--accent-dark);
+}
+.help-block { margin-top: 2.5rem; }
+.help-block table.jobs { box-shadow: none; }
+
 fieldset.chains { border: none; padding: 0; margin: 0 0 1.5rem; }
 fieldset.chains legend {
   font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.06em;

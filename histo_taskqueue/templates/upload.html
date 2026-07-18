@@ -1,0 +1,43 @@
+{% extends "base.html" %}
+{% block title %}Bulk CSV · histo · taskqueue{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div>
+    <h1>Bulk upload</h1>
+    <p class="lede">Submit many jobs at once with a wide-format CSV — one job per row.</p>
+  </div>
+  <a class="btn btn-ghost" href="{{ url_for('upload_sample') }}">Download sample CSV</a>
+</div>
+
+<form method="post" action="{{ url_for('upload_jobs') }}" enctype="multipart/form-data" class="job-form">
+  <div class="field">
+    <label for="file">CSV file</label>
+    <input type="file" id="file" name="file" accept=".csv,text/csv" />
+  </div>
+
+  <div class="field">
+    <label for="csv_text">…or paste CSV <span class="hint">used if no file is chosen</span></label>
+    <textarea id="csv_text" name="csv_text" rows="6"
+              placeholder="name,sequence_1,count_1,sequence_2,count_2,model_seeds&#10;My job,MVLSPADK...,1,,,"></textarea>
+  </div>
+
+  <div class="form-actions">
+    <button type="submit" class="btn btn-primary">Upload &amp; queue</button>
+    <a class="btn btn-ghost" href="{{ url_for('index_view') }}">Cancel</a>
+  </div>
+</form>
+
+<section class="help-block">
+  <h2>CSV format</h2>
+  <p>Header row required (columns are case-insensitive). One job per row.</p>
+  <table class="jobs">
+    <thead><tr><th>Column</th><th>Required</th><th>Meaning</th></tr></thead>
+    <tbody>
+      <tr><td class="mono">name</td><td>yes</td><td>Job name</td></tr>
+      <tr><td class="mono">sequence_1 … sequence_5</td><td>sequence_1</td><td>Protein-chain sequences; blank cells skipped</td></tr>
+      <tr><td class="mono">count_1 … count_5</td><td>no</td><td>Copies per chain (default 1)</td></tr>
+      <tr><td class="mono">model_seeds</td><td>no</td><td>Comma/space separated integers</td></tr>
+    </tbody>
+  </table>
+</section>
+{% endblock %}

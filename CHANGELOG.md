@@ -4,6 +4,29 @@ All notable changes to **histo · taskqueue** are documented here. This project
 adheres to [Keep a Changelog](https://keepachangelog.com/) and
 [Semantic Versioning](https://semver.org/).
 
+## [Unreleased]
+
+### Added
+
+- **Bulk CSV upload** (`/jobs/upload`) — submit many jobs at once from a
+  wide-format CSV (one job per row: `name`, `sequence_1..5`, `count_1..5`,
+  `model_seeds`). Each row is validated independently and a results page reports
+  which rows queued and why any failed. A sample CSV is downloadable at
+  `/jobs/upload/sample.csv`. New module `bulk.py`.
+- **pMHC class I panel** (`/jobs/pmhc`) — submit one MHC class I allele against
+  many peptides; the app queues one job per unique peptide, each modelled as
+  heavy chain + β2-microglobulin + peptide. β2m defaults to the human sequence
+  and can be overridden or omitted. New module `pmhc.py`.
+- **Allele registry** (`alleles.py`) — MHC class I heavy-chain sequences loaded
+  from a JSON file (`HTQ_ALLELES_PATH`, bundled empty by default); populates the
+  allele picker on the pMHC page.
+- **`JobSpec`** (in `alphafold.py`) and `JobQueue.create_spec` — a shared
+  job description used by the bulk and pMHC flows.
+- New templates (`upload`, `pmhc`, `bulk_results`), nav links, and styles for
+  selects/checkboxes/notes.
+- 19 further tests (bulk parsing, pMHC builder, allele registry, and the new
+  routes) — 50 total.
+
 ## [0.1.0] — 2026-07-18
 
 Initial release: a working AlphaFold Server job task queue.

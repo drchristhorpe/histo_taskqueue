@@ -64,6 +64,10 @@ class JobQueue:
         self.index.upsert(record)
         return record
 
+    def create_spec(self, spec: alphafold.JobSpec) -> JobRecord:
+        """Create a job from a :class:`alphafold.JobSpec`."""
+        return self.create(spec.name, spec.chains, spec.model_seeds)
+
     def get(self, job_id: str) -> JobRecord | None:
         return self.index.get(job_id)
 

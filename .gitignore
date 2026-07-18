@@ -216,3 +216,9 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+# histo_taskqueue runtime data
+data/
+*.duckdb
+*.duckdb.wal
+.venv/

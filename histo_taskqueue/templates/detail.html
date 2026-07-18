@@ -1,0 +1,49 @@
+{% extends "base.html" %}
+{% block title %}{{ job.name }} · histo · taskqueue{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div>
+    <p class="crumb"><a href="{{ url_for('index_view') }}">← Queue</a></p>
+    <h1>{{ job.name }}</h1>
+    <p class="lede"><span class="badge badge-{{ job.status }}">{{ job.status }}</span>
+      <span class="job-id">{{ job.id }}</span></p>
+  </div>
+  <a class="btn btn-primary" href="{{ url_for('download_job', job_id=job.id) }}">Download job file</a>
+</div>
+
+<div class="detail-grid">
+  <dl class="meta">
+    <div><dt>Chains</dt><dd>{{ job.num_chains }}</dd></div>
+    <div><dt>Chain summary</dt><dd>{{ job.chain_summary }}</dd></div>
+    <div><dt>Total residues</dt><dd>{{ job.total_residues }}</dd></div>
+    <div><dt>Model seeds</dt><dd>{{ job.model_seeds or "auto" }}</dd></div>
+    <div><dt>Created</dt><dd>{{ job.created_at }}</dd></div>
+    <div><dt>Updated</dt><dd>{{ job.updated_at }}</dd></div>
+    <div><dt>Storage</dt><dd class="mono">{{ job.location }}</dd></div>
+  </dl>
+
+  <div class="actions-panel">
+    <h2>Advance status</h2>
+    <form method="post" action="{{ url_for('update_status', job_id=job.id) }}" class="status-form">
+      <div class="status-buttons">
+        {% for s in statuses %}
+          <button type="submit" name="status" value="{{ s }}"
+                  class="btn btn-status btn-status-{{ s }} {% if s == job.status %}is-current{% endif %}"
+                  {% if s == job.status %}disabled{% endif %}>{{ s }}</button>
+        {% endfor %}
+      </div>
+    </form>
+
+    <form method="post" action="{{ url_for('delete_job', job_id=job.id) }}"
+          onsubmit="return confirm('Delete this job? This cannot be undone.');">
+      <button type="submit" class="btn btn-danger">Delete job</button>
+    </form>
+  </div>
+</div>
+
+<section class="json-block">
+  <h2>AlphaFold Server job file</h2>
+  <p class="lede">This is the exact JSON the AlphaFold Server ingests — an array of jobs.</p>
+  <pre class="json"><code>{{ pretty_json }}</code></pre>
+</section>
+{% endblock %}

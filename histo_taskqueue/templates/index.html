@@ -1,0 +1,61 @@
+{% extends "base.html" %}
+{% block title %}Queue · histo · taskqueue{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div>
+    <h1>Job queue</h1>
+    <p class="lede">AlphaFold Server jobs, newest first.</p>
+  </div>
+  <a class="btn btn-primary" href="{{ url_for('new_job_view') }}">Compose job</a>
+</div>
+
+<div class="stat-row">
+  {% for status in statuses %}
+    <a class="stat stat-{{ status }} {% if active_status == status %}stat-active{% endif %}"
+       href="{{ url_for('index_view', status=status) }}">
+      <span class="stat-num">{{ counts[status] }}</span>
+      <span class="stat-label">{{ status }}</span>
+    </a>
+  {% endfor %}
+  <a class="stat {% if not active_status %}stat-active{% endif %}" href="{{ url_for('index_view') }}">
+    <span class="stat-num">{{ counts.values() | sum }}</span>
+    <span class="stat-label">all</span>
+  </a>
+</div>
+
+{% if jobs %}
+<table class="jobs">
+  <thead>
+    <tr>
+      <th>Name</th>
+      <th>Chains</th>
+      <th>Residues</th>
+      <th>Seeds</th>
+      <th>Status</th>
+      <th>Created</th>
+      <th></th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for job in jobs %}
+    <tr>
+      <td><a class="job-link" href="{{ url_for('job_detail', job_id=job.id) }}">{{ job.name }}</a>
+        <div class="job-id">{{ job.id }}</div>
+      </td>
+      <td>{{ job.chain_summary }}</td>
+      <td>{{ job.total_residues }}</td>
+      <td>{{ job.model_seeds or "auto" }}</td>
+      <td><span class="badge badge-{{ job.status }}">{{ job.status }}</span></td>
+      <td class="muted">{{ job.created_at }}</td>
+      <td><a class="link-arrow" href="{{ url_for('job_detail', job_id=job.id) }}">view →</a></td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% else %}
+<div class="empty">
+  <p>No jobs {% if active_status %}with status <strong>{{ active_status }}</strong>{% endif %} yet.</p>
+  <a class="btn btn-primary" href="{{ url_for('new_job_view') }}">Compose your first job</a>
+</div>
+{% endif %}
+{% endblock %}

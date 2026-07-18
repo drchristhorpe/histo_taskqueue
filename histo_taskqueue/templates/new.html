@@ -1,0 +1,50 @@
+{% extends "base.html" %}
+{% block title %}Compose job · histo · taskqueue{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div>
+    <h1>Compose a job</h1>
+    <p class="lede">Up to {{ max_chains }} protein chains. Sequences use the 20 standard amino acids.</p>
+  </div>
+</div>
+
+<form method="post" action="{{ url_for('create_job') }}" class="job-form">
+  <div class="field">
+    <label for="name">Job name</label>
+    <input type="text" id="name" name="name" placeholder="e.g. HLA-A*02:01 + peptide"
+           value="{{ form.name if form else '' }}" required />
+  </div>
+
+  <div class="field">
+    <label for="model_seeds">Model seeds <span class="hint">optional — comma/space separated integers; blank ⇒ server auto-assigns</span></label>
+    <input type="text" id="model_seeds" name="model_seeds" placeholder="e.g. 1, 2, 42"
+           value="{{ form.model_seeds if form else '' }}" />
+  </div>
+
+  <fieldset class="chains">
+    <legend>Protein chains</legend>
+    {% for i in chain_range %}
+    <div class="chain-card">
+      <div class="chain-head">
+        <span class="chain-badge">Chain {{ i }}</span>
+        <div class="field field-inline">
+          <label for="count_{{ i }}">Copies</label>
+          <input type="number" id="count_{{ i }}" name="count_{{ i }}" min="1" step="1"
+                 value="{{ form.get('count_' ~ i) if form else '1' }}" />
+        </div>
+      </div>
+      <div class="field">
+        <label for="sequence_{{ i }}">Sequence {% if i == 1 %}<span class="hint">at least one chain required</span>{% endif %}</label>
+        <textarea id="sequence_{{ i }}" name="sequence_{{ i }}" rows="3"
+                  placeholder="{% if i == 1 %}MVLSPADKTNVKAAWGKVGAHAGEYGAEALERMFLSFPTTKTYFPHF...{% else %}(leave blank to skip){% endif %}">{{ form.get('sequence_' ~ i) if form else '' }}</textarea>
+      </div>
+    </div>
+    {% endfor %}
+  </fieldset>
+
+  <div class="form-actions">
+    <button type="submit" class="btn btn-primary">Queue job</button>
+    <a class="btn btn-ghost" href="{{ url_for('index_view') }}">Cancel</a>
+  </div>
+</form>
+{% endblock %}

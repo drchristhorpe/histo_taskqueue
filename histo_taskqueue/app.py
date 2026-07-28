@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import functools
 import json
 
 from flask import (
@@ -9,6 +10,7 @@ from flask import (
     Response,
     abort,
     flash,
+    g,
     redirect,
     render_template,
     request,
@@ -17,6 +19,7 @@ from flask import (
 
 from . import alphafold, bulk, pmhc
 from .alleles import AlleleRegistry
+from .apikeys import APIKeyStore
 from .config import Config
 from .index import STATUSES, JobIndex
 from .queue import JobQueue
@@ -42,12 +45,66 @@ def create_app(config: Config | None = None) -> Flask:
     queue = JobQueue(store, index)
     app.extensions["htq_queue"] = queue
     app.extensions["htq_alleles"] = AlleleRegistry(config.alleles_path)
+    app.extensions["htq_keys"] = APIKeyStore(config.resolved_api_keys_path())
 
     def q() -> JobQueue:
         return app.extensions["htq_queue"]
 
     def alleles() -> AlleleRegistry:
         return app.extensions["htq_alleles"]
+
+    def keystore() -> APIKeyStore:
+        return app.extensions["htq_keys"]
+
+    # -- API key authentication -------------------------------------------
+    def _auth_required() -> bool:
+        """Whether the JSON API demands a key, given the configured mode."""
+        mode = config.api_auth_mode
+        if mode == "disabled":
+            return False
+        if mode == "required":
+            return True
+        return keystore().active_count() > 0  # "auto": enforce once keys exist
+
+    def _presented_token() -> str | None:
+        header = request.headers.get("Authorization", "")
+        if header.startswith("Bearer "):
+            return header[len("Bearer "):].strip()
+        return request.headers.get("X-API-Key") or None
+
+    def require_scope(*scopes: str):
+        """Decorate a JSON endpoint to require one of ``scopes`` (or admin).
+
+        When auth is not required (mode disabled, or "auto" with no keys), the
+        endpoint is open and ``g.api_key`` is None.
+        """
+
+        def decorator(view):
+            @functools.wraps(view)
+            def wrapped(*args, **kwargs):
+                g.api_key = None
+                if not _auth_required():
+                    return view(*args, **kwargs)
+                token = _presented_token()
+                if not token:
+                    return _auth_error(401, "Missing API key. Send 'Authorization: Bearer <token>'.")
+                key = keystore().verify(token)
+                if key is None:
+                    return _auth_error(401, "Invalid or revoked API key.")
+                if scopes and not any(key.has_scope(s) for s in scopes):
+                    return _auth_error(
+                        403, f"API key lacks required scope: {' or '.join(scopes)}."
+                    )
+                g.api_key = key
+                return view(*args, **kwargs)
+
+            return wrapped
+
+        return decorator
+
+    def _auth_error(code: int, message: str):
+        resp = json.dumps({"error": message}), code
+        return Response(resp[0], status=code, mimetype="application/json")
 
     def _create_specs(specs) -> tuple[list[bulk.RowResult], int]:
         """Create a list of RowResults' specs, filling in job_id/error. Returns
@@ -173,6 +230,7 @@ def create_app(config: Config | None = None) -> Flask:
         )
 
     @app.route("/api/alleles")
+    @require_scope("create", "consume")
     def api_alleles():
         reg = alleles()
         query = request.args.get("q", "")
@@ -279,14 +337,24 @@ def create_app(config: Config | None = None) -> Flask:
         flash("Job deleted.", "success")
         return redirect(url_for("index_view"))
 
-    # -- json api ----------------------------------------------------------
+    # -- json api: read / consume -----------------------------------------
+    @app.route("/api/whoami")
+    @require_scope("create", "consume")
+    def api_whoami():
+        key = getattr(g, "api_key", None)
+        if key is None:
+            return {"authenticated": False, "auth_required": _auth_required()}
+        return {"authenticated": True, "key": key.public_dict()}
+
     @app.route("/api/jobs")
+    @require_scope("consume")
     def api_list():
         status = request.args.get("status") or None
         jobs = [r.as_dict() for r in q().list(status)]
         return {"jobs": jobs, "counts": q().counts()}
 
     @app.route("/api/jobs/<job_id>")
+    @require_scope("consume")
     def api_get(job_id: str):
         record = q().get(job_id)
         if record is None:
@@ -294,6 +362,7 @@ def create_app(config: Config | None = None) -> Flask:
         return {"job": record.as_dict(), "file": q().get_job_file(job_id)}
 
     @app.route("/api/jobs/claim", methods=["POST"])
+    @require_scope("consume")
     def api_claim():
         record = q().claim_next()
         if record is None:
@@ -301,6 +370,7 @@ def create_app(config: Config | None = None) -> Flask:
         return {"job": record.as_dict(), "file": q().get_job_file(record.id)}
 
     @app.route("/api/jobs/<job_id>/status", methods=["POST"])
+    @require_scope("consume")
     def api_set_status(job_id: str):
         payload = request.get_json(silent=True) or request.form
         status = (payload.get("status") or "").strip()
@@ -311,9 +381,90 @@ def create_app(config: Config | None = None) -> Flask:
             abort(404)
         return {"job": record.as_dict()}
 
+    # -- json api: create / produce ---------------------------------------
+    def _chain_from_json(c: dict) -> alphafold.ProteinChain:
+        return alphafold.ProteinChain(
+            sequence=c.get("sequence", ""),
+            count=int(c.get("count", 1)),
+            glycans=list(c.get("glycans", []) or []),
+            modifications=list(c.get("modifications", []) or []),
+        )
+
+    @app.route("/api/jobs", methods=["POST"])
+    @require_scope("create")
+    def api_create_job():
+        body = request.get_json(silent=True)
+        if not isinstance(body, dict):
+            return {"error": "Expected a JSON object body."}, 400
+        try:
+            chains = [_chain_from_json(c) for c in body.get("chains", [])]
+            record = q().create(
+                name=body.get("name", ""),
+                chains=chains,
+                model_seeds=alphafold.parse_model_seeds_value(body.get("model_seeds")),
+            )
+        except (alphafold.ValidationError, ValueError, TypeError) as exc:
+            return {"error": str(exc)}, 400
+        return {"job": record.as_dict(), "file": q().get_job_file(record.id)}, 201
+
+    @app.route("/api/jobs/pmhc", methods=["POST"])
+    @require_scope("create")
+    def api_create_pmhc():
+        reg = alleles()
+        body = request.get_json(silent=True)
+        if not isinstance(body, dict):
+            return {"error": "Expected a JSON object body."}, 400
+        allele_name = (body.get("allele_name") or "").strip()
+        heavy_chain = body.get("heavy_chain") or ""
+        allele = reg.get(allele_name)
+        if allele and not heavy_chain.strip():
+            heavy_chain = allele.heavy_chain
+        peptides = body.get("peptides")
+        if isinstance(peptides, list):
+            peptides = pmhc.parse_peptides("\n".join(peptides))
+        else:
+            peptides = pmhc.parse_peptides(peptides or "")
+        try:
+            specs = pmhc.build_pmhc_specs(
+                allele_name=allele_name,
+                heavy_chain=heavy_chain,
+                peptides=peptides,
+                b2m=(body.get("b2m") or reg.default_b2m),
+                include_b2m=bool(body.get("include_b2m", True)),
+            )
+        except alphafold.ValidationError as exc:
+            return {"error": str(exc)}, 400
+        rows = [bulk.RowResult(row_num=i, name=s.name, spec=s)
+                for i, s in enumerate(specs, start=1)]
+        results, created = _create_specs(rows)
+        return {"created": created, "total": len(results),
+                "jobs": _rows_payload(results)}, 201
+
+    @app.route("/api/jobs/bulk", methods=["POST"])
+    @require_scope("create")
+    def api_create_bulk():
+        body = request.get_json(silent=True)
+        if not isinstance(body, dict) or "csv" not in body:
+            return {"error": "Expected a JSON object with a 'csv' string field."}, 400
+        try:
+            parsed = bulk.parse_jobs_csv(body["csv"])
+        except alphafold.ValidationError as exc:
+            return {"error": str(exc)}, 400
+        results, created = _create_specs(parsed)
+        return {"created": created, "total": len(results),
+                "jobs": _rows_payload(results)}, 201
+
+    def _rows_payload(results) -> list[dict]:
+        return [
+            {"row": r.row_num, "name": r.name, "job_id": r.job_id,
+             "ok": r.ok, "error": r.error}
+            for r in results
+        ]
+
     @app.route("/healthz")
     def healthz():
-        return {"status": "ok", "backend": config.store_backend}
+        return {"status": "ok", "backend": config.store_backend,
+                "auth_required": _auth_required()}
 
     return app
 

@@ -222,3 +222,7 @@ data/
 *.duckdb
 *.duckdb.wal
 .venv/
+
+# API key stores — never commit secrets
+api_keys.json
+*api_keys*.json

@@ -18,6 +18,7 @@ dev = ["pytest>=8.0"]
 [project.scripts]
 histo-taskqueue = "histo_taskqueue.app:main"
 histo-worker = "histo_taskqueue.worker:main"
+histo-taskqueue-keys = "histo_taskqueue.manage:main"
 
 [build-system]
 requires = ["hatchling"]

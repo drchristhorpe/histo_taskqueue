@@ -40,6 +40,8 @@ class Config:
     s3_prefix: str = "jobs"
     s3_endpoint_url: str | None = None
     alleles_path: Path | None = None
+    api_keys_path: Path | None = None
+    api_auth_mode: str = "auto"  # "auto" | "required" | "disabled"
     secret_key: str = "dev-secret-change-me"
 
     def resolved_objects_dir(self) -> Path:
@@ -48,12 +50,16 @@ class Config:
     def resolved_index_path(self) -> Path:
         return self.index_path or (self.data_dir / "index.duckdb")
 
+    def resolved_api_keys_path(self) -> Path:
+        return self.api_keys_path or (self.data_dir / "api_keys.json")
+
     @classmethod
     def from_env(cls) -> "Config":
         data_dir = Path(_env("HTQ_DATA_DIR", "data"))
         objects_dir = os.environ.get("HTQ_OBJECTS_DIR")
         index_path = os.environ.get("HTQ_INDEX_PATH")
         alleles_path = os.environ.get("HTQ_ALLELES_PATH")
+        api_keys_path = os.environ.get("HTQ_API_KEYS_PATH")
         return cls(
             store_backend=_env("HTQ_STORE_BACKEND", "local").lower(),
             data_dir=data_dir,
@@ -63,5 +69,7 @@ class Config:
             s3_prefix=_env("HTQ_S3_PREFIX", "jobs"),
             s3_endpoint_url=os.environ.get("HTQ_S3_ENDPOINT_URL"),
             alleles_path=Path(alleles_path) if alleles_path else None,
+            api_keys_path=Path(api_keys_path) if api_keys_path else None,
+            api_auth_mode=_env("HTQ_API_AUTH", "auto").lower(),
             secret_key=_env("HTQ_SECRET_KEY", "dev-secret-change-me"),
         )

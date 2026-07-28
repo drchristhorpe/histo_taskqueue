@@ -103,6 +103,25 @@ def parse_model_seeds(raw: str | None) -> list[int]:
     return seeds
 
 
+def parse_model_seeds_value(value) -> list[int]:
+    """Coerce a JSON ``model_seeds`` value (list, string, or None) to ints.
+
+    Accepts a list of ints/strings, a free-text string (comma/space separated),
+    or None/empty. Raises ValidationError on a non-integer entry.
+    """
+    if value is None:
+        return []
+    if isinstance(value, (list, tuple)):
+        seeds: list[int] = []
+        for item in value:
+            try:
+                seeds.append(int(item))
+            except (ValueError, TypeError) as exc:
+                raise ValidationError(f"Model seed '{item}' is not an integer.") from exc
+        return seeds
+    return parse_model_seeds(str(value))
+
+
 def build_job(
     name: str,
     chains: list[ProteinChain],

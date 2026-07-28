@@ -64,7 +64,10 @@ All settings are environment variables (sensible local defaults):
 | `HTQ_S3_BUCKET`       | —                       | Bucket (required for `s3`)                |
 | `HTQ_S3_PREFIX`       | `jobs`                  | Key prefix in the bucket                  |
 | `HTQ_S3_ENDPOINT_URL` | —                       | Custom endpoint (MinIO / localstack)      |
-| `HTQ_ALLELES_PATH`    | bundled (empty)         | JSON registry of MHC class I alleles      |
+| `HTQ_ALLELES_PATH`    | bundled                 | JSON registry of MHC class I alleles      |
+| `HTQ_API_KEYS_PATH`   | `<data>/api_keys.json`  | API-key store (hashed tokens)             |
+| `HTQ_API_AUTH`        | `auto`                  | `auto` / `required` / `disabled`          |
+| `HTQ_API_KEY`         | —                       | Bearer token used by the worker           |
 | `HTQ_SECRET_KEY`      | `dev-secret-change-me`  | Flask session secret                      |
 | `HTQ_SERVER_URL`      | `http://127.0.0.1:8000` | Base URL the worker talks to              |
 | `PORT`                | `8000`                  | Web server port                           |
@@ -164,11 +167,45 @@ python scripts/build_allele_registry.py path/to/locus_dumps
 | GET    | `/jobs/<id>/download`      | Download the AlphaFold job file       |
 | POST   | `/jobs/<id>/status`        | Set status (form)                     |
 | POST   | `/jobs/<id>/delete`        | Delete a job                          |
+| POST   | `/api/jobs` (JSON)         | Create a job — needs `create` scope   |
+| POST   | `/api/jobs/pmhc`           | Queue a pMHC panel — `create` scope   |
+| POST   | `/api/jobs/bulk`           | Create jobs from CSV — `create` scope |
+| GET    | `/api/whoami`              | Identify the calling key              |
 | GET    | `/api/jobs`                | List jobs + counts (JSON)             |
 | GET    | `/api/jobs/<id>`           | Job record + file (JSON)              |
 | POST   | `/api/jobs/claim`          | FIFO claim next queued job → running  |
 | POST   | `/api/jobs/<id>/status`    | Set status (JSON)                     |
 | GET    | `/healthz`                 | Health check                          |
+
+## API keys & authentication
+
+The JSON API (`/api/*`) is protected by **token-based API keys with scopes**:
+
+- `create` — create jobs (producers).
+- `consume` — list jobs, claim the queue, set status (workers/consumers).
+- `admin` — grants all scopes (reserved for future privileged operations).
+
+Keys are bearer tokens (`htq_…`); only their SHA-256 hash is stored (in
+`HTQ_API_KEYS_PATH`). Present one as `Authorization: Bearer <token>` (or
+`X-API-Key: <token>`). Manage them with the CLI:
+
+```bash
+uv run histo-taskqueue-keys create --label "prod worker" --scopes consume
+uv run histo-taskqueue-keys create --label "pipeline" --scopes create
+uv run histo-taskqueue-keys list
+uv run histo-taskqueue-keys revoke <id>
+```
+
+The token is printed **once** at creation — store it immediately.
+
+**Enforcement** is controlled by `HTQ_API_AUTH`:
+
+- `auto` (default) — the API is open until the first key exists, then enforced.
+- `required` — always enforced (return 401 without a valid key).
+- `disabled` — never enforced (local development).
+
+The HTML UI (`/`, `/jobs/*`) is unauthenticated and intended for trusted/local
+use; lock down programmatic access via the API + keys.
 
 ## Worker
 
@@ -180,7 +217,7 @@ its JSON API:
 uv run histo-worker            # claim + process one job
 uv run histo-worker --all      # drain the whole queue
 uv run histo-worker --list     # print queue counts
-uv run histo-worker --url http://host:8000
+uv run histo-worker --url http://host:8000 --api-key htq_…   # or set HTQ_API_KEY
 ```
 
 The bundled worker is a stand-in — it validates the stored job file and marks the
@@ -195,6 +232,8 @@ histo_taskqueue/
   bulk.py       Wide-format CSV parsing into job specs
   pmhc.py       pMHC class I panel builder (allele × peptides) + default β2m
   alleles.py    AlleleRegistry — load slim registry, search, default β2m
+  apikeys.py    Scoped API keys — hashed token store, verify, scopes
+  manage.py     histo-taskqueue-keys CLI (create / list / revoke)
   store.py      ObjectStore interface; LocalFileStore + S3Store
   index.py      JobIndex — DuckDB schema, upsert, list/filter, counts
   queue.py      JobQueue — create / get / claim / set_status / delete
@@ -214,7 +253,7 @@ DuckDB index holds queryable metadata and can be rebuilt from the store.
 
 ```bash
 uv sync --extra dev
-uv run pytest        # 53 tests: unit + Flask route integration
+uv run pytest        # 68 tests: unit + Flask route integration
 ```
 
 ## License

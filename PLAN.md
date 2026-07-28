@@ -148,6 +148,18 @@ canonical AlphaFold Server output is identical to single-job submission.
   resolved from the registry server-side on submit. β2m defaults to
   `human_b2m.json`.
 
+## API keys & programmatic access
+
+- **Scoped bearer tokens** (`apikeys.py`) gate the JSON API: `create` (produce),
+  `consume` (list/claim/status), `admin` (all). Only SHA-256 hashes are stored;
+  the `histo-taskqueue-keys` CLI issues/lists/revokes them. `HTQ_API_AUTH`
+  chooses enforcement (`auto`/`required`/`disabled`).
+- **Creation API** — `POST /api/jobs`, `/api/jobs/pmhc`, `/api/jobs/bulk` mirror
+  the HTML flows for machine clients; consume endpoints require `consume`. This
+  is the surface the (separate) client library and CLI talk to — the client is a
+  thin, API-only package so other Histo products can produce/consume jobs without
+  the server stack.
+
 ## Out of scope (v1)
 
 - Real AlphaFold execution / GPU submission (worker only simulates state).

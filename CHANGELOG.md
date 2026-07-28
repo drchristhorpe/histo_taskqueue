@@ -8,6 +8,22 @@ adheres to [Keep a Changelog](https://keepachangelog.com/) and
 
 ### Added
 
+- **Scoped API keys** (`apikeys.py`) — token-based bearer auth for the JSON API
+  with `create` / `consume` / `admin` scopes. Only SHA-256 hashes are stored;
+  tokens (`htq_…`) are shown once. Managed by the `histo-taskqueue-keys` CLI
+  (`create` / `list` / `revoke`). Enforcement via `HTQ_API_AUTH`
+  (`auto` — open until keys exist, then enforced / `required` / `disabled`).
+- **JSON creation API** — `POST /api/jobs` (single job), `POST /api/jobs/pmhc`
+  (allele × peptides), and `POST /api/jobs/bulk` (CSV text), each requiring the
+  `create` scope. Read/consume endpoints (`/api/jobs`, `claim`, status) now
+  require `consume`; `GET /api/whoami` identifies the calling key.
+- **Worker auth** — `histo-worker` accepts `--api-key` / `HTQ_API_KEY` and sends
+  it as a bearer token (needs `consume`).
+- `alphafold.parse_model_seeds_value` accepts model seeds as a JSON list or a
+  string. 15 further tests (API keys, auth enforcement, JSON creation) — 68 total.
+
+### Added (styling & data)
+
 - **Histo.fyi design system** — replaced the recreated stylesheet with the real
   Histo stylesheet (`static/css/histo-site.css`) plus a small `app.css` for
   app-specific components, the Histo logo (`_logo.html`), and Poppins/Courier

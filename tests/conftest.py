@@ -19,6 +19,7 @@ def config(tmp_path) -> Config:
         store_backend="local",
         data_dir=tmp_path,
         alleles_path=tmp_path / "no_alleles",
+        api_keys_path=tmp_path / "api_keys.json",
     )
 
 

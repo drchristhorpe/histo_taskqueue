@@ -6,7 +6,8 @@ Compose a job from up to **five protein sequence chains**, and the app serialise
 it to the exact JSON format the [AlphaFold Server](https://alphafoldserver.com)
 ingests, stores the JSON object (local filesystem or S3), and indexes the job
 metadata in **DuckDB** so the queue can be listed, filtered and worked through.
-The UI is styled to echo [Histo.fyi](https://www.histo.fyi).
+The UI uses the [Histo.fyi](https://www.histo.fyi) design system (its stylesheet,
+Poppins/Courier Prime typography, and logo).
 
 ![Queue](docs/queue.png)
 
@@ -18,8 +19,9 @@ The UI is styled to echo [Histo.fyi](https://www.histo.fyi).
 - **Bulk CSV upload** — submit many jobs at once from a wide-format CSV (one job
   per row); each row is validated and reported individually.
 - **pMHC class I panel** — one MHC allele against many peptides, queuing a job
-  per peptide (heavy chain + β2-microglobulin + peptide). Alleles can come from a
-  registry or be pasted directly.
+  per peptide (heavy chain + β2-microglobulin + peptide). Backed by a registry of
+  **~9,700 HLA-A/B/C alleles** (IMGT/HLA) with type-ahead search; sequences can
+  also be pasted directly.
 - **AlphaFold Server format** — every job downloads as the canonical
   `[ { "name", "modelSeeds", "sequences", "dialect", "version" } ]` array.
 - **Pluggable object store** — `local` filesystem (default) or `s3` (boto3).
@@ -117,28 +119,33 @@ From **`/jobs/pmhc`**, submit **one MHC class I allele against many peptides** �
 the app queues one job per (unique) peptide, each modelled as up to three chains:
 the MHC heavy chain, β2-microglobulin, and the peptide.
 
-- Paste the heavy-chain sequence directly, or pick a **registered allele**.
+- Start typing an **allele name** (e.g. `HLA-A*02:01`) — the field autocompletes
+  from the registry and fills the heavy chain. Or paste any heavy-chain sequence.
 - β2-microglobulin defaults to the human sequence; untick it or supply your own.
 - Peptides: one per line (or comma-separated); duplicates are removed.
 
 ### Allele registry
 
-Registered alleles are loaded from a JSON file (`HTQ_ALLELES_PATH`, defaults to a
-bundled empty list). Each entry:
+The bundled registry (`histo_taskqueue/resources/alleles/registry.json`) holds
+**~9,700 HLA-A/B/C alleles** distilled from the IMGT/HLA locus data — each a slim
+record:
 
 ```json
 [
-  {
-    "name": "HLA-A*02:01",
-    "heavy_chain": "GSHSMRYFFTSVSRPGRGEPRFIAVGYVDDTQFVRFDSDAASQRMEPRAPWIEQEGPEYWD...",
-    "b2m": "IQRTPKIQVYSRHPAENGKSNFLNCYVSGFHPSDIEVDLLKNGERIEKVEHSDLSFSKDW...",
-    "notes": "optional"
-  }
+  { "name": "HLA-A*02:01", "locus": "A",
+    "heavy_chain": "GSHSMRYFFT…", "pocket_pseudosequence": "YFAMY…" }
 ]
 ```
 
-Only `name` and `heavy_chain` are required; omit `b2m` to use the default. Point
-`HTQ_ALLELES_PATH` at your own file to populate the picker.
+Because there are thousands, the page never renders them all — it queries
+`GET /api/alleles?q=` for type-ahead search. Point `HTQ_ALLELES_PATH` at your own
+`registry.json` (or a directory containing it plus `human_b2m.json`) to override.
+
+Rebuild the registry from raw IMGT/HLA locus dumps (`hla_a.json`, …):
+
+```bash
+python scripts/build_allele_registry.py path/to/locus_dumps
+```
 
 ## HTTP API
 
@@ -152,6 +159,7 @@ Only `name` and `heavy_chain` are required; omit `b2m` to use the default. Point
 | GET    | `/jobs/upload/sample.csv`  | Download a sample CSV                  |
 | GET    | `/jobs/pmhc`               | pMHC class I panel form               |
 | POST   | `/jobs/pmhc`               | Queue one job per peptide             |
+| GET    | `/api/alleles?q=`          | Type-ahead allele search (JSON)       |
 | GET    | `/jobs/<id>`               | Job detail                            |
 | GET    | `/jobs/<id>/download`      | Download the AlphaFold job file       |
 | POST   | `/jobs/<id>/status`        | Set status (form)                     |
@@ -186,14 +194,16 @@ histo_taskqueue/
   alphafold.py  Validate chains + build/parse AlphaFold Server job JSON
   bulk.py       Wide-format CSV parsing into job specs
   pmhc.py       pMHC class I panel builder (allele × peptides) + default β2m
-  alleles.py    AlleleRegistry loaded from JSON
+  alleles.py    AlleleRegistry — load slim registry, search, default β2m
   store.py      ObjectStore interface; LocalFileStore + S3Store
   index.py      JobIndex — DuckDB schema, upsert, list/filter, counts
   queue.py      JobQueue — create / get / claim / set_status / delete
   app.py        Flask app factory + routes
-  templates/    base · index · new · upload · pmhc · bulk_results · detail
-  static/css/   histo.css
-  resources/    alleles.json (bundled, empty by default)
+  templates/    base · _logo · index · new · upload · pmhc · bulk_results · detail
+  static/css/   histo-site.css (Histo design system) + app.css
+  static/js/    allele-autocomplete.js
+  resources/alleles/  registry.json (~9,700 alleles) + human_b2m.json
+scripts/        build_allele_registry.py (IMGT dumps → slim registry)
 worker.py       HTTP worker CLI
 ```
 
@@ -204,7 +214,7 @@ DuckDB index holds queryable metadata and can be rebuilt from the store.
 
 ```bash
 uv sync --extra dev
-uv run pytest        # 50 tests: unit + Flask route integration
+uv run pytest        # 53 tests: unit + Flask route integration
 ```
 
 ## License

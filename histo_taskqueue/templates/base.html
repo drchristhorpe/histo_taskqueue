@@ -2,43 +2,72 @@
 <html lang="en">
 <head>
   <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0" />
   <title>{% block title %}histo · taskqueue{% endblock %}</title>
-  <link rel="stylesheet" href="{{ url_for('static', filename='css/histo.css') }}" />
+  <meta name="description" content="A task queue for AlphaFold Server job files." />
+  <link href="https://static.histo.fyi/histo-32-color.png" rel="icon" type="image/png" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Courier+Prime:wght@400;700&family=Poppins:ital,wght@0,100;0,200;0,300;0,400;0,500;0,600;0,700;0,800;0,900;1,400&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/histo-site.css') }}?v=1" />
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/app.css') }}?v=1" />
 </head>
 <body>
-  <header class="site-header">
-    <div class="wrap header-inner">
-      <a class="brand" href="{{ url_for('index_view') }}">
-        <span class="brand-mark">histo</span><span class="brand-sep">·</span><span class="brand-sub">taskqueue</span>
-      </a>
-      <nav class="site-nav">
-        <a href="{{ url_for('index_view') }}">Queue</a>
-        <a href="{{ url_for('upload_view') }}">Bulk CSV</a>
-        <a href="{{ url_for('pmhc_view') }}">pMHC panel</a>
-        <a class="nav-cta" href="{{ url_for('new_job_view') }}">New job</a>
-      </nav>
+  <header class="header" role="banner">
+    <div class="grid-container">
+      <div class="column-full-width">
+        <div class="inner">
+          <a href="{{ url_for('index_view') }}" class="header-logo" aria-label="histo · taskqueue">
+            {% include "_logo.html" %}
+            <h1>histo · taskqueue</h1>
+          </a>
+          <nav class="primary-navigation">
+            <ul class="horizontal-list">
+              {% set ep = request.endpoint %}
+              <li><a class="{{ 'is-active' if ep == 'index_view' }}" href="{{ url_for('index_view') }}">Queue</a></li>
+              <li><a class="{{ 'is-active' if ep == 'new_job_view' }}" href="{{ url_for('new_job_view') }}">New job</a></li>
+              <li><a class="{{ 'is-active' if ep == 'upload_view' }}" href="{{ url_for('upload_view') }}">Bulk CSV</a></li>
+              <li><a class="{{ 'is-active' if ep == 'pmhc_view' }}" href="{{ url_for('pmhc_view') }}">pMHC panel</a></li>
+            </ul>
+          </nav>
+        </div>
+      </div>
     </div>
   </header>
 
-  <main class="wrap">
+  <main class="main">
     {% with messages = get_flashed_messages(with_categories=true) %}
       {% if messages %}
-        <div class="flashes">
-          {% for category, message in messages %}
-            <div class="flash flash-{{ category }}">{{ message }}</div>
-          {% endfor %}
-        </div>
+        <section>
+          <div class="grid-container">
+            <div class="column-full-width">
+              <div class="inner">
+                {% for category, message in messages %}
+                  <div class="flash flash-{{ category }}">{{ message }}</div>
+                {% endfor %}
+              </div>
+            </div>
+          </div>
+        </section>
       {% endif %}
     {% endwith %}
 
     {% block content %}{% endblock %}
   </main>
 
-  <footer class="site-footer">
-    <div class="wrap">
-      <p>histo · taskqueue — AlphaFold Server job files, queued and indexed.</p>
+  <footer class="footer top-border">
+    <div class="grid-container">
+      <div class="column-full-width">
+        <div class="inner footer-inner">
+          {% include "_logo.html" %}
+          <p class="footer-note">
+            <small>histo · taskqueue — AlphaFold Server job files, queued and indexed.
+            Styled with the histo.fyi design system.</small>
+          </p>
+        </div>
+      </div>
     </div>
   </footer>
+  {% block scripts %}{% endblock %}
 </body>
 </html>

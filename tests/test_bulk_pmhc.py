@@ -84,20 +84,43 @@ def test_build_pmhc_specs_validation():
 
 
 # -- allele registry -----------------------------------------------------
-def test_allele_registry_loads(tmp_path):
-    path = tmp_path / "alleles.json"
-    path.write_text(json.dumps([
-        {"name": "HLA-A*02:01", "heavy_chain": "ACDEFGHIK", "b2m": "IQRTPK"},
-        {"name": "bad", "heavy_chain": ""},  # skipped
+def _write_registry(tmp_path):
+    """Write a small slim-format registry + b2m file into a directory."""
+    d = tmp_path / "alleles"
+    d.mkdir()
+    (d / "registry.json").write_text(json.dumps([
+        {"name": "HLA-A*02:01", "locus": "A", "heavy_chain": "ACDEFGHIK",
+         "pocket_pseudosequence": "YFAMY"},
+        {"name": "HLA-A*01:01", "locus": "A", "heavy_chain": "GHIKLMNPQ"},
+        {"name": "HLA-B*07:02", "locus": "B", "heavy_chain": "MNPQRSTVW"},
+        {"name": "bad", "heavy_chain": ""},  # skipped (no sequence)
     ]))
-    reg = AlleleRegistry(path)
-    assert len(reg) == 1
+    (d / "human_b2m.json").write_text(json.dumps({"canonical_sequence": "IQRTPKB2M"}))
+    return d
+
+
+def test_allele_registry_loads_slim_format(tmp_path):
+    reg = AlleleRegistry(_write_registry(tmp_path))
+    assert len(reg) == 3
     a = reg.get("HLA-A*02:01")
     assert a.heavy_chain == "ACDEFGHIK"
+    assert a.locus == "A"
+    assert a.pocket_pseudosequence == "YFAMY"
     assert reg.get("nope") is None
+    assert reg.default_b2m == "IQRTPKB2M"  # loaded from human_b2m.json
+
+
+def test_allele_registry_search(tmp_path):
+    reg = AlleleRegistry(_write_registry(tmp_path))
+    names = [a.name for a in reg.search("HLA-A")]
+    assert names == ["HLA-A*01:01", "HLA-A*02:01"]  # prefix, sorted
+    assert [a.name for a in reg.search("b*07")] == ["HLA-B*07:02"]  # case-insensitive
+    assert reg.search("zzz") == []
+    assert len(reg.search("", limit=2)) == 2
 
 
 def test_allele_registry_missing_file(tmp_path):
     reg = AlleleRegistry(tmp_path / "does_not_exist.json")
     assert len(reg) == 0
     assert reg.list() == []
+    assert reg.default_b2m  # falls back to the built-in constant

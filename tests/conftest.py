@@ -13,7 +13,13 @@ from histo_taskqueue.store import LocalFileStore
 
 @pytest.fixture
 def config(tmp_path) -> Config:
-    return Config(store_backend="local", data_dir=tmp_path)
+    # Point the allele registry at a non-existent path so the ~9,700-entry
+    # bundled registry is not parsed for every test app (keeps the suite fast).
+    return Config(
+        store_backend="local",
+        data_dir=tmp_path,
+        alleles_path=tmp_path / "no_alleles",
+    )
 
 
 @pytest.fixture

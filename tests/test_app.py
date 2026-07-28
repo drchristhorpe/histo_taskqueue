@@ -191,3 +191,50 @@ def test_pmhc_submit_validation_error(client):
     resp = client.post("/jobs/pmhc", data={"allele_name": "", "heavy_chain": SEQ_A,
                                            "peptides": "NLVPMVATV"}, follow_redirects=True)
     assert b"allele name is required" in resp.data
+
+
+# -- allele registry integration ----------------------------------------
+import json as _json
+
+import pytest
+
+from histo_taskqueue.app import create_app
+from histo_taskqueue.config import Config
+
+
+@pytest.fixture
+def reg_client(tmp_path):
+    d = tmp_path / "alleles"
+    d.mkdir()
+    (d / "registry.json").write_text(_json.dumps([
+        {"name": "HLA-A*02:01", "locus": "A", "heavy_chain": SEQ_A},
+        {"name": "HLA-B*07:02", "locus": "B", "heavy_chain": SEQ_B},
+    ]))
+    (d / "human_b2m.json").write_text(_json.dumps({"canonical_sequence": "IQRTPKQVY"}))
+    cfg = Config(store_backend="local", data_dir=tmp_path, alleles_path=d)
+    app = create_app(cfg)
+    app.config.update(TESTING=True)
+    return app.test_client()
+
+
+def test_api_alleles_search(reg_client):
+    data = reg_client.get("/api/alleles?q=HLA-A").get_json()
+    assert data["count"] == 2
+    assert [a["name"] for a in data["alleles"]] == ["HLA-A*02:01"]
+    assert reg_client.get("/api/alleles?q=zzz").get_json()["alleles"] == []
+
+
+def test_pmhc_resolves_heavy_chain_from_registry(reg_client):
+    # No heavy_chain posted — it must be resolved from the registry by name.
+    resp = reg_client.post(
+        "/jobs/pmhc",
+        data={"allele_name": "HLA-A*02:01", "include_b2m": "on", "peptides": "NLVPMVATV"},
+        follow_redirects=True,
+    )
+    assert b"created <strong>1</strong> of 1" in resp.data
+    job_id = reg_client.get("/api/jobs").get_json()["jobs"][0]["id"]
+    payload = _json.loads(reg_client.get(f"/jobs/{job_id}/download").data)
+    seqs = [c["proteinChain"]["sequence"] for c in payload[0]["sequences"]]
+    assert seqs[0] == SEQ_A          # heavy chain from registry
+    assert seqs[1] == "IQRTPKQVY"    # b2m from human_b2m.json
+    assert seqs[2] == "NLVPMVATV"    # peptide

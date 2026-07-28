@@ -1,0 +1,185 @@
+/* histo · taskqueue — app-specific components layered on the histo.fyi
+   design system (histo-site.css). Palette: ink #0a0039, pale-blue panels,
+   phase-label accents. */
+
+:root {
+  --ink: #0a0039;
+  --ink-70: rgba(10, 0, 57, 0.70);
+  --ink-50: rgba(10, 0, 57, 0.50);
+  --line: rgba(10, 0, 57, 0.10);
+  --line-soft: rgba(10, 0, 57, 0.06);
+  --surface: #ffffff;
+  --panel: #F0FAFE;
+  --panel-line: #CEECFD;
+  --radius: 5px;
+}
+
+/* -- page scaffolding ------------------------------------------------- */
+.main { padding-bottom: 60px; }
+.section-pad { padding-top: 30px; }
+.inner { padding-top: 20px; padding-bottom: 20px; }
+
+.page-head {
+  display: flex; align-items: flex-end; justify-content: space-between;
+  gap: 20px; flex-wrap: wrap; margin-bottom: 24px;
+}
+.page-head h1 { margin-bottom: 4px; }
+.lede { color: var(--ink-70); margin: 0; }
+.crumb { margin-bottom: 10px; font-size: 14px; }
+.muted { color: var(--ink-50); }
+.mono { font-family: "Courier Prime", ui-monospace, Menlo, Consolas, monospace; }
+.stack > * + * { margin-top: 20px; }
+
+/* -- flash messages --------------------------------------------------- */
+.flash {
+  padding: 12px 16px; border-radius: var(--radius); margin-bottom: 10px;
+  font-size: 15px; border: 1px solid var(--line);
+}
+.flash-success { background: #EAF9EA; border-color: #ABEDAB; color: #003906; }
+.flash-error { background: #FBD0E9; border-color: #f3b6d8; color: #990059; }
+
+/* -- buttons: spacing helpers (histo-site.css styles .button) --------- */
+.button.compact { padding: 10px 22px; }
+.form-actions { display: flex; gap: 12px; align-items: center; margin-top: 8px; }
+.btn-row { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
+a.button, input.button, button.button { width: auto; }
+
+/* danger + status action buttons build on .button.secondary look */
+.button.danger {
+  background-color: #FBD0E9; border: 1px solid #f3b6d8; color: #990059;
+  box-shadow: none;
+}
+.button.danger:hover { background-color: #f7bcdd; border-color: #f3b6d8; color: #660038; }
+
+/* -- status badges (mirror .phase-label) ------------------------------ */
+.status-badge {
+  display: inline-block; font-size: 12px; letter-spacing: 1px;
+  text-transform: uppercase; line-height: 20px; padding: 2px 10px;
+  border-radius: 3px; font-weight: 500;
+}
+.status-queued    { color: #663300; background: #FFD9B3; }
+.status-running   { color: #043049; background: #CEECFD; }
+.status-completed { color: #003906; background: #ABEDAB; }
+.status-failed    { color: #990059; background: #FBD0E9; }
+
+/* -- stat cards ------------------------------------------------------- */
+.stat-row { display: flex; flex-wrap: wrap; gap: 12px; margin-bottom: 28px; }
+.stat {
+  flex: 1 1 0; min-width: 120px; background: var(--surface);
+  border: 1px solid var(--line); border-radius: var(--radius);
+  padding: 14px 16px; text-decoration: none; color: var(--ink);
+  display: flex; flex-direction: column; gap: 2px;
+}
+.stat:hover { border-color: var(--ink); text-decoration: none; }
+.stat.is-active { border-color: var(--ink); box-shadow: inset 0 0 0 1px var(--ink); }
+.stat-num { font-size: 30px; line-height: 34px; font-weight: 600; }
+.stat-label { font-size: 12px; letter-spacing: 1px; text-transform: uppercase; color: var(--ink-50); }
+
+/* -- tables ----------------------------------------------------------- */
+table.jobs { width: 100%; border-collapse: collapse; }
+table.jobs th, table.jobs td {
+  text-align: left; padding: 12px 14px; border-bottom: 1px solid var(--line-soft);
+  font-size: 15px; vertical-align: top;
+}
+table.jobs thead th {
+  font-size: 12px; letter-spacing: 1px; text-transform: uppercase;
+  color: var(--ink-50); font-weight: 500; border-bottom: 1px solid var(--line);
+}
+table.jobs tbody tr:hover { background: var(--panel); }
+.job-link { font-weight: 500; }
+.job-id { font-family: "Courier Prime", monospace; font-size: 12px; color: var(--ink-50); margin-top: 2px; }
+.link-arrow { font-size: 14px; white-space: nowrap; }
+
+.card {
+  background: var(--surface); border: 1px solid var(--line);
+  border-radius: var(--radius); padding: 20px 22px;
+}
+.empty {
+  background: var(--panel); border: 1px dashed var(--panel-line);
+  border-radius: var(--radius); padding: 48px 24px; text-align: center; color: var(--ink-70);
+}
+.empty p { margin-bottom: 16px; }
+
+/* -- forms ------------------------------------------------------------ */
+.field { margin-bottom: 20px; }
+.field label { display: block; font-weight: 500; margin-bottom: 6px; }
+.field .hint { font-weight: 400; color: var(--ink-50); font-size: 14px; }
+.field-inline { display: flex; align-items: center; gap: 8px; margin: 0; }
+.field-inline label { margin: 0; }
+
+.text-input, textarea, select, input[type="number"], input[type="text"], input[type="file"] {
+  width: 100%; padding: 10px 12px; border: 1px solid var(--line);
+  border-radius: var(--radius); font-family: inherit; font-size: 16px;
+  color: var(--ink); background: var(--surface); line-height: 22px;
+}
+textarea { font-family: "Courier Prime", monospace; font-size: 14px; resize: vertical; }
+textarea:focus, select:focus, input:focus { outline: none; border-color: var(--ink); box-shadow: 0 0 0 3px var(--panel-line); }
+input[type="file"] { font-family: inherit; padding: 8px 10px; }
+.field-inline input[type="number"] { width: 90px; }
+
+.checkbox { display: flex; align-items: center; gap: 8px; font-weight: 500; }
+.checkbox input { width: auto; }
+
+fieldset.chains { border: none; padding: 0; margin: 0 0 20px; }
+fieldset.chains legend {
+  font-size: 12px; letter-spacing: 1px; text-transform: uppercase;
+  color: var(--ink-50); margin-bottom: 10px;
+}
+.chain-card {
+  background: var(--surface); border: 1px solid var(--line);
+  border-radius: var(--radius); padding: 16px 18px; margin-bottom: 14px;
+}
+.chain-head { display: flex; align-items: flex-end; justify-content: space-between; gap: 16px; margin-bottom: 8px; }
+.chain-badge {
+  display: inline-block; font-size: 12px; font-weight: 600; letter-spacing: 1px;
+  text-transform: uppercase; color: #043049; background: #CEECFD;
+  padding: 2px 10px; border-radius: 3px;
+}
+.note {
+  background: var(--panel); border: 1px solid var(--panel-line);
+  border-radius: var(--radius); padding: 12px 16px; font-size: 15px; color: var(--ink-70);
+}
+
+/* -- detail ----------------------------------------------------------- */
+.detail-grid { display: grid; grid-template-columns: 1.4fr 1fr; gap: 20px; margin-bottom: 24px; }
+dl.meta { margin: 0; display: grid; gap: 12px; }
+dl.meta > div { display: grid; grid-template-columns: 140px 1fr; gap: 10px; }
+dl.meta dt { color: var(--ink-50); font-size: 14px; }
+dl.meta dd { margin: 0; font-size: 15px; word-break: break-word; }
+.status-buttons { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 16px; }
+.status-buttons .button { padding: 8px 18px; }
+
+pre.json {
+  background: #0a0039; color: #E7F6FE; border-radius: var(--radius);
+  padding: 20px 22px; overflow-x: auto; font-family: "Courier Prime", monospace;
+  font-size: 13px; line-height: 1.5; margin-top: 8px;
+}
+.help-block { margin-top: 40px; }
+
+/* -- allele autocomplete --------------------------------------------- */
+.allele-field { position: relative; }
+.allele-suggest {
+  position: absolute; left: 0; right: 0; z-index: 20; margin-top: 2px;
+  background: var(--surface); border: 1px solid var(--line);
+  border-radius: var(--radius); box-shadow: 0 6px 20px rgba(10,0,57,0.12);
+  max-height: 260px; overflow-y: auto; display: none;
+}
+.allele-suggest.open { display: block; }
+.allele-suggest button {
+  display: block; width: 100%; text-align: left; border: 0; background: none;
+  padding: 8px 12px; font-family: inherit; font-size: 15px; color: var(--ink); cursor: pointer;
+}
+.allele-suggest button:hover, .allele-suggest button.active { background: var(--panel); }
+.allele-suggest .locus { color: var(--ink-50); font-size: 12px; margin-left: 6px; }
+
+/* -- footer ----------------------------------------------------------- */
+.footer-inner { display: flex; align-items: center; gap: 16px; }
+.footer .logo { height: 28px; width: auto; }
+.footer .logo path { fill: #0a0039; }
+.footer-note { margin: 0; color: var(--ink-50); }
+
+/* -- responsive ------------------------------------------------------- */
+@media (max-width: 720px) {
+  .detail-grid { grid-template-columns: 1fr; }
+  table.jobs { display: block; overflow-x: auto; }
+}

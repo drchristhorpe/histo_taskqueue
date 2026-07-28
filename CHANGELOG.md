@@ -8,6 +8,30 @@ adheres to [Keep a Changelog](https://keepachangelog.com/) and
 
 ### Added
 
+- **Histo.fyi design system** — replaced the recreated stylesheet with the real
+  Histo stylesheet (`static/css/histo-site.css`) plus a small `app.css` for
+  app-specific components, the Histo logo (`_logo.html`), and Poppins/Courier
+  Prime web fonts. Templates rebuilt around Histo's `grid-container` / `column`
+  / `inner` layout, `.button`, `.text-input`, and `.phase-label`-style badges.
+- **HLA allele registry** — bundled ~9,700 HLA-A/B/C alleles distilled from the
+  IMGT/HLA locus data into `resources/alleles/registry.json` (name, locus,
+  canonical heavy chain, NetMHCpan pocket pseudosequence), plus the human β2m in
+  `human_b2m.json`. `alleles.py` gains slim-format loading and prefix/substring
+  `search`; `scripts/build_allele_registry.py` regenerates the registry from raw
+  locus dumps.
+- **Allele type-ahead** — `GET /api/alleles?q=` search endpoint and a
+  vanilla-JS autocomplete (`allele-autocomplete.js`) on the pMHC page; the panel
+  resolves the typed allele name to its heavy chain server-side on submit.
+- Further tests for the slim registry, search, the alleles API, and
+  registry-resolved pMHC submission — 53 total.
+
+### Changed
+
+- pMHC β2-microglobulin now defaults to the registry's `human_b2m.json` sequence
+  (falling back to the built-in constant).
+
+### Added (earlier)
+
 - **Bulk CSV upload** (`/jobs/upload`) — submit many jobs at once from a
   wide-format CSV (one job per row: `name`, `sequence_1..5`, `count_1..5`,
   `model_seeds`). Each row is validated independently and a results page reports

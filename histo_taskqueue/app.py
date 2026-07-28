@@ -167,30 +167,41 @@ def create_app(config: Config | None = None) -> Flask:
     # -- pMHC class I panel ------------------------------------------------
     @app.route("/jobs/pmhc")
     def pmhc_view():
+        reg = alleles()
         return render_template(
-            "pmhc.html", alleles=alleles().list(), default_b2m=pmhc.DEFAULT_B2M, form=None
+            "pmhc.html", default_b2m=reg.default_b2m, allele_count=len(reg), form=None
         )
+
+    @app.route("/api/alleles")
+    def api_alleles():
+        reg = alleles()
+        query = request.args.get("q", "")
+        try:
+            limit = min(max(int(request.args.get("limit", "20")), 1), 100)
+        except ValueError:
+            limit = 20
+        matches = reg.search(query, limit)
+        return {
+            "count": len(reg),
+            "alleles": [
+                {"name": a.name, "locus": a.locus} for a in matches
+            ],
+        }
 
     @app.route("/jobs/pmhc", methods=["POST"])
     def pmhc_submit():
+        reg = alleles()
         form = request.form
         allele_name = form.get("allele_name", "").strip()
         heavy_chain = form.get("heavy_chain", "")
         b2m = form.get("b2m", "")
         include_b2m = form.get("include_b2m") == "on"
 
-        # If a registered allele was chosen and no custom heavy chain was typed,
-        # fill the sequences from the registry.
-        selected = form.get("allele_select", "").strip()
-        if selected:
-            allele = alleles().get(selected)
-            if allele:
-                if not allele_name:
-                    allele_name = allele.name
-                if not heavy_chain.strip():
-                    heavy_chain = allele.heavy_chain
-                if not b2m.strip() and allele.b2m:
-                    b2m = allele.b2m
+        # Resolve the typed allele name against the registry: if it matches a
+        # known allele and no custom heavy chain was pasted, use its sequence.
+        allele = reg.get(allele_name)
+        if allele and not heavy_chain.strip():
+            heavy_chain = allele.heavy_chain
 
         peptides = pmhc.parse_peptides(form.get("peptides", ""))
         try:
@@ -198,14 +209,14 @@ def create_app(config: Config | None = None) -> Flask:
                 allele_name=allele_name,
                 heavy_chain=heavy_chain,
                 peptides=peptides,
-                b2m=b2m or None,
+                b2m=(b2m or reg.default_b2m),
                 include_b2m=include_b2m,
             )
         except alphafold.ValidationError as exc:
             flash(str(exc), "error")
             return render_template(
-                "pmhc.html", alleles=alleles().list(),
-                default_b2m=pmhc.DEFAULT_B2M, form=form,
+                "pmhc.html", default_b2m=reg.default_b2m,
+                allele_count=len(reg), form=form,
             )
 
         rows = [

@@ -133,6 +133,21 @@ Two batch-submission flows layered on the same store + index:
 Both reuse `alphafold.JobSpec` and the existing validation/build path, so the
 canonical AlphaFold Server output is identical to single-job submission.
 
+## Styling & allele data
+
+- **Histo design system** — the app serves the real histo.fyi stylesheet
+  (`static/css/histo-site.css`) plus `app.css` for app-specific components, the
+  Histo logo partial (`_logo.html`), and Poppins/Courier Prime via Google Fonts.
+  Templates follow Histo's `section > grid-container > column-full-width > inner`
+  layout with `.button`, `.text-input`, and `.phase-label`-style status badges.
+- **Allele registry** — `resources/alleles/registry.json` carries ~9,700
+  HLA-A/B/C alleles distilled from the IMGT/HLA locus dumps by
+  `scripts/build_allele_registry.py` (kept slim: name, locus, canonical heavy
+  chain, pocket pseudosequence). Too many for a `<select>`, so the pMHC page uses
+  a `GET /api/alleles?q=` search endpoint with a JS type-ahead; the heavy chain is
+  resolved from the registry server-side on submit. β2m defaults to
+  `human_b2m.json`.
+
 ## Out of scope (v1)
 
 - Real AlphaFold execution / GPU submission (worker only simulates state).

@@ -1,63 +1,76 @@
 {% extends "base.html" %}
 {% block title %}pMHC panel · histo · taskqueue{% endblock %}
 {% block content %}
-<div class="page-head">
-  <div>
-    <h1>pMHC class I panel</h1>
-    <p class="lede">One MHC class I allele against many peptides — a job is queued per peptide.</p>
-  </div>
-</div>
+<section class="section-pad">
+  <div class="grid-container">
+    <div class="column-full-width">
+      <div class="inner">
 
-<form method="post" action="{{ url_for('pmhc_submit') }}" class="job-form">
-  {% if alleles %}
-  <div class="field">
-    <label for="allele_select">Registered allele <span class="hint">optional — fills the name &amp; heavy chain below</span></label>
-    <select id="allele_select" name="allele_select">
-      <option value="">— choose an allele —</option>
-      {% for a in alleles %}
-        <option value="{{ a.name }}">{{ a.name }}</option>
-      {% endfor %}
-    </select>
-  </div>
-  {% else %}
-  <p class="note">No alleles are registered yet — paste a heavy-chain sequence below.
-    Populate the registry via <span class="mono">HTQ_ALLELES_PATH</span> to get a picker here.</p>
-  {% endif %}
+        <div class="page-head">
+          <div>
+            <h1>pMHC class I panel</h1>
+            <p class="lede">One MHC class I allele against many peptides — a job is queued per peptide.</p>
+          </div>
+        </div>
 
-  <div class="field">
-    <label for="allele_name">Allele name</label>
-    <input type="text" id="allele_name" name="allele_name" placeholder="e.g. HLA-A*02:01"
-           value="{{ form.allele_name if form else '' }}" required />
-  </div>
+        {% if allele_count %}
+          <p class="note">{{ "{:,}".format(allele_count) }} HLA class I alleles loaded — start typing a name
+            (e.g. <span class="mono">HLA-A*02:01</span>) to autocomplete the heavy chain.</p>
+        {% else %}
+          <p class="note">No allele registry loaded — paste a heavy-chain sequence below. Point
+            <span class="mono">HTQ_ALLELES_PATH</span> at a registry to enable autocomplete.</p>
+        {% endif %}
 
-  <div class="field">
-    <label for="heavy_chain">MHC heavy-chain sequence</label>
-    <textarea id="heavy_chain" name="heavy_chain" rows="4"
-              placeholder="GSHSMRYFFTSVSRPGRGEPRFIAVGYVDDTQFVRFDSDAASQRMEPRAPWIEQEGPEYWD...">{{ form.heavy_chain if form else '' }}</textarea>
-  </div>
+        <form method="post" action="{{ url_for('pmhc_submit') }}" class="job-form" style="margin-top:20px">
+          <div class="field allele-field">
+            <label for="allele_name">Allele
+              <span class="hint">type to search the registry, or enter any name</span></label>
+            <input type="text" class="text-input" id="allele_name" name="allele_name"
+                   autocomplete="off" placeholder="HLA-A*02:01"
+                   value="{{ form.allele_name if form else '' }}" required />
+            <div class="allele-suggest" id="allele_suggest"></div>
+          </div>
 
-  <div class="field">
-    <label class="checkbox">
-      <input type="checkbox" name="include_b2m" {% if not form or form.get('include_b2m') == 'on' %}checked{% endif %} />
-      Include β2-microglobulin chain
-    </label>
-  </div>
+          <div class="field">
+            <label for="heavy_chain">MHC heavy-chain sequence
+              <span class="hint">auto-filled from the registry; paste to override</span></label>
+            <textarea id="heavy_chain" name="heavy_chain" rows="4"
+                      placeholder="Filled automatically when you pick a registered allele…">{{ form.heavy_chain if form else '' }}</textarea>
+          </div>
 
-  <div class="field">
-    <label for="b2m">β2-microglobulin sequence <span class="hint">optional — blank uses the default human β2m</span></label>
-    <textarea id="b2m" name="b2m" rows="3"
-              placeholder="{{ default_b2m }}">{{ form.b2m if form else '' }}</textarea>
-  </div>
+          <div class="field">
+            <label class="checkbox">
+              <input type="checkbox" name="include_b2m"
+                     {% if not form or form.get('include_b2m') == 'on' %}checked{% endif %} />
+              Include β2-microglobulin chain
+            </label>
+          </div>
 
-  <div class="field">
-    <label for="peptides">Peptides <span class="hint">one per line (or comma separated); duplicates are removed</span></label>
-    <textarea id="peptides" name="peptides" rows="6" required
-              placeholder="NLVPMVATV&#10;GILGFVFTL&#10;GLCTLVAML">{{ form.peptides if form else '' }}</textarea>
-  </div>
+          <div class="field">
+            <label for="b2m">β2-microglobulin sequence
+              <span class="hint">optional — blank uses the default human β2m</span></label>
+            <textarea id="b2m" name="b2m" rows="3"
+                      placeholder="{{ default_b2m }}">{{ form.b2m if form else '' }}</textarea>
+          </div>
 
-  <div class="form-actions">
-    <button type="submit" class="btn btn-primary">Queue panel</button>
-    <a class="btn btn-ghost" href="{{ url_for('index_view') }}">Cancel</a>
+          <div class="field">
+            <label for="peptides">Peptides
+              <span class="hint">one per line (or comma separated); duplicates are removed</span></label>
+            <textarea id="peptides" name="peptides" rows="6" required
+                      placeholder="NLVPMVATV&#10;GILGFVFTL&#10;GLCTLVAML">{{ form.peptides if form else '' }}</textarea>
+          </div>
+
+          <div class="form-actions">
+            <button type="submit" class="button">Queue panel</button>
+            <a class="button secondary" href="{{ url_for('index_view') }}">Cancel</a>
+          </div>
+        </form>
+
+      </div>
+    </div>
   </div>
-</form>
+</section>
+{% endblock %}
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/allele-autocomplete.js') }}"></script>
 {% endblock %}
